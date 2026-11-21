@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>폐자원 열적 처리 최적 공정 추천 &amp; TEA/LCA 시뮬레이터</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Pretendard Font -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <style>
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: #f4f7f6;
+      color: #102a25;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 10px;
+      background: #d5e2df;
+      border-radius: 9999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #147a68;
+      cursor: pointer;
+      border: 3px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(10, 59, 50, 0.35);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #0a3b32;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- 상단 발표용 헤더 바 -->
+  <header class="bg-[#0a3b32] text-white shadow-lg sticky top-0 z-30 border-b border-[#124d42]">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="px-3 py-0.5 text-xs font-bold bg-[#147a68]/40 text-[#84d2c5] border border-[#147a68] rounded-full">
+            폐자원순환관리 팀 프로젝트 · 실측 CAPEX/OPEX 통합 모델
+          </span>
+          <span class="text-xs sm:text-sm text-emerald-100/90 font-medium">
+            Aljoubory (2026) · Li &amp; Jin (2025) · Kapusta (2026) 원문 경제성·환경성 데이터 반영
+          </span>
+        </div>
+        <h1 class="text-lg sm:text-2xl font-black tracking-tight mt-1 text-white">
+          폐자원 열적 처리 최적 공정 추천 &amp; TEA/LCA 시뮬레이터
+        </h1>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <button id="openModalBtn" type="button"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#e85d3f] hover:bg-[#d14d30] text-white text-sm font-bold shadow-md transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          논문 원문 수치 커스텀 수정
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 대시보드 레이아웃 -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- 좌측 입력 패널 (4컬럼) -->
+      <section class="lg:col-span-4 space-y-5">
+
+        <!-- 1. 폐기물 성상 프리셋 버튼 4개 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-[#d5e2df] p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-base font-extrabold text-[#0a3b32] flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#147a68]"></span>
+              원료 성상별 원클릭 프리셋
+            </h2>
+            <span class="text-xs font-bold text-[#147a68] bg-[#e6f2ef] px-2.5 py-0.5 rounded-md">적재적소 매칭</span>
+          </div>
+          <p class="text-xs text-[#4a635e] mb-3.5 leading-relaxed">
+            기술 간 서열화 없이, 투입 폐자원의 수분 함량과 목표 산출물에 따른 <strong>최적 공정</strong>을 즉시 비교합니다.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5">
+            <button type="button" id="preset-incineration" onclick="applyPreset('incineration')"
+              class="preset-card text-left p-3.5 rounded-xl border border-[#d5e2df] hover:border-[#147a68] hover:bg-[#f4f9f8] transition flex items-center justify-between cursor-pointer">
+              <div>
+                <div class="text-sm font-bold text-[#102a25]">가연성 혼합 폐기물 (수분 20%)</div>
+                <div class="text-xs text-[#4a635e] mt-0.5">Aljoubory (2026) · 대규모 전력·열회수 + CCS</div>
+              </div>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 shrink-0">소각/CCS</span>
+            </button>
+
+            <button type="button" id="preset-dry_carb" onclick="applyPreset('dry_carb')"
+              class="preset-card text-left p-3.5 rounded-xl border border-[#d5e2df] hover:border-[#147a68] hover:bg-[#f4f9f8] transition flex items-center justify-between cursor-pointer">
+              <div>
+                <div class="text-sm font-bold text-[#102a25]">폐목재·농업부산물 (수분 25%)</div>
+                <div class="text-xs text-[#4a635e] mt-0.5">Li &amp; Jin (2025) · 저수분 고체 바이오차</div>
+              </div>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-200 text-slate-800 shrink-0">건식 탄화</span>
+            </button>
+
+            <button type="button" id="preset-htc" onclick="applyPreset('htc')"
+              class="preset-card text-left p-3.5 rounded-xl border-2 border-[#147a68] bg-[#e6f2ef]/70 transition flex items-center justify-between cursor-pointer">
+              <div>
+                <div class="text-sm font-bold text-[#0a3b32]">도시하수슬러지 (수분 75%)</div>
+                <div class="text-xs text-[#147a68] mt-0.5">Li &amp; Jin (2025) · 무건조 저단가 고형연료</div>
+              </div>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#147a68] text-white shrink-0">열수탄화</span>
+            </button>
+
+            <button type="button" id="preset-htl" onclick="applyPreset('htl')"
+              class="preset-card text-left p-3.5 rounded-xl border border-[#d5e2df] hover:border-[#147a68] hover:bg-[#f4f9f8] transition flex items-center justify-between cursor-pointer">
+              <div>
+                <div class="text-sm font-bold text-[#102a25]">고유기성 슬러지·음식물 (수분 80%)</div>
+                <div class="text-xs text-[#4a635e] mt-0.5">Kapusta (2026) · 수첨 액체 바이오연료</div>
+              </div>
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-[#e85d3f]/15 text-[#e85d3f] shrink-0">수열액화</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. 세부 입력 변수 조절 패널 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-[#d5e2df] p-5 space-y-5">
+          <h2 class="text-base font-extrabold text-[#0a3b32] flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#e85d3f]"></span>
+            투입 원료 및 플랜트 조건 설정
+          </h2>
+
+          <!-- 원료 평균 수분 함량 슬라이더 -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label for="moistureSlider" class="text-sm font-bold text-[#102a25]">원료 평균 수분 함량</label>
+              <span id="moistureValue" class="text-base font-extrabold text-[#0a3b32] bg-[#e6f2ef] border border-[#b8d8d0] px-3 py-0.5 rounded-lg">75%</span>
+            </div>
+            <input id="moistureSlider" type="range" min="10" max="85" step="5" value="75" class="w-full" />
+            <div class="flex justify-between text-xs text-[#4a635e] font-medium mt-1.5">
+              <span>10% (건조 목재)</span>
+              <span>35% (건식 임계)</span>
+              <span>85% (슬러지·음식물)</span>
+            </div>
+          </div>
+
+          <!-- 일일 폐기물 처리 규모 슬라이더 (6/10 법칙 스케일업) -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label for="capacitySlider" class="text-sm font-bold text-[#102a25]">일일 처리 규모 (6/10 법칙 적용)</label>
+              <span id="capacityValue" class="text-base font-extrabold text-[#102a25] bg-[#f4f7f6] border border-[#d5e2df] px-3 py-0.5 rounded-lg">100 톤/일</span>
+            </div>
+            <input id="capacitySlider" type="range" min="30" max="500" step="10" value="100" class="w-full" />
+            <div class="flex justify-between text-xs text-[#4a635e] font-medium mt-1.5">
+              <span>30 톤/일 (소규모)</span>
+              <span>250 톤/일</span>
+              <span>500 톤/일 (대규모)</span>
+            </div>
+          </div>
+
+          <!-- 목표 에너지/자원 산출물 선택 버튼 -->
+          <div>
+            <label class="block text-sm font-bold text-[#102a25] mb-2">목표 에너지·자원 산출물</label>
+            <div class="grid grid-cols-1 gap-2" id="targetButtonGroup">
+              <button type="button" data-target="heat_power" onclick="selectTarget('heat_power')"
+                class="target-btn text-left px-3.5 py-2.5 rounded-xl border border-[#d5e2df] bg-white text-xs sm:text-sm font-bold text-[#334844] hover:border-[#147a68] transition flex items-center justify-between cursor-pointer">
+                <span>즉시 전력/스팀 회수</span>
+                <span class="text-[11px] font-semibold text-[#4a635e]">LCOE 전력 기준</span>
+              </button>
+              <button type="button" data-target="solid_char" onclick="selectTarget('solid_char')"
+                class="target-btn text-left px-3.5 py-2.5 rounded-xl border-2 border-[#147a68] bg-[#e6f2ef] text-xs sm:text-sm font-extrabold text-[#0a3b32] transition flex items-center justify-between cursor-pointer">
+                <span>저장 가능한 고체 연료(Char)</span>
+                <span class="text-[11px] font-bold text-[#147a68]">바이오차·하이드로차</span>
+              </button>
+              <button type="button" data-target="liquid_oil" onclick="selectTarget('liquid_oil')"
+                class="target-btn text-left px-3.5 py-2.5 rounded-xl border border-[#d5e2df] bg-white text-xs sm:text-sm font-bold text-[#334844] hover:border-[#147a68] transition flex items-center justify-between cursor-pointer">
+                <span>고부가가치 액체 수송연료</span>
+                <span class="text-[11px] font-semibold text-[#4a635e]">수첨 바이오연료</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 환경 규제·탄소배출권 강도 슬라이더 -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label for="lcaWeightSlider" class="text-sm font-bold text-[#102a25]">환경 규제·탄소배출권 강도</label>
+              <span id="lcaWeightValue" class="text-xs font-extrabold text-white bg-[#0a3b32] px-2.5 py-1 rounded-lg">레벨 4 · 환경성 중시</span>
+            </div>
+            <input id="lcaWeightSlider" type="range" min="1" max="5" step="1" value="4" class="w-full" />
+            <div class="flex justify-between text-xs text-[#4a635e] font-medium mt-1.5">
+              <span>레벨 1 (단가 최우선)</span>
+              <span>레벨 3 (균형)</span>
+              <span>레벨 5 (탈탄소 최우선)</span>
+            </div>
+          </div>
+
+          <!-- HTL 폐기물 반입 수수료(Gate Fee) 수익 반영 토글 -->
+          <div class="p-3.5 rounded-xl bg-[#f7f9f8] border border-[#d5e2df] flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-extrabold text-[#0a3b32]">HTL 슬러지 반입 수수료 수익 반영</div>
+              <div class="text-[11px] text-[#4a635e] mt-0.5 leading-snug">
+                Kapusta (2026): 반입수익(-2.52M$/yr) 차감 시 순 OPEX <strong>-0.65M$/yr(흑자)</strong>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input id="gateFeeToggle" type="checkbox" checked class="sr-only peer" />
+              <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#147a68]"></div>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 우측 결과 패널 (8컬럼) -->
+      <section class="lg:col-span-8 space-y-6">
+
+        <!-- [1] 상단 대형 히어로 카드: 최적 매칭 공정 (CAPEX / OPEX 분리 표시) -->
+        <div id="heroCard" class="bg-white rounded-3xl shadow-md border-2 border-[#147a68] overflow-hidden transition-all">
+          <div id="heroHeader" class="bg-gradient-to-r from-[#0a3b32] via-[#124d42] to-[#147a68] px-6 sm:px-8 py-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-extrabold tracking-wide text-[#84d2c5] mb-2">
+                <svg class="w-4 h-4 text-[#84d2c5]" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                최적 매칭 공정 (Optimal Fit)
+              </div>
+              <h2 id="heroTitle" class="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                열수탄화 (HTC)
+              </h2>
+              <p id="heroSubtitle" class="text-sm text-emerald-100 mt-1 font-medium">
+                280℃ 물속 고압 반응 · 주생성물: 고체 하이드로차(Hydrochar) · 근거: Li &amp; Jin (2025)
+              </p>
+            </div>
+
+            <!-- 적합도 총점 배지 -->
+            <div class="bg-white text-[#102a25] rounded-2xl px-5 py-3.5 shadow-lg text-center shrink-0 self-start sm:self-center">
+              <div class="text-xs font-bold text-[#4a635e] tracking-wider">시뮬레이터 적합도</div>
+              <div class="flex items-baseline justify-center gap-1 mt-0.5">
+                <span id="heroScore" class="text-4xl font-black text-[#147a68]">94</span>
+                <span class="text-sm font-bold text-slate-400">/ 100점</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 히어로 카드 본문: 핵심 매칭 사유 + 분리된 CAPEX / OPEX / 단가 / LCA 지표 -->
+          <div class="p-6 sm:p-8 space-y-5">
+            <div class="p-4 sm:p-5 rounded-2xl bg-[#e6f2ef]/75 border border-[#b8d8d0]">
+              <div class="text-xs font-extrabold text-[#0a3b32] tracking-wider mb-1.5">
+                핵심 매칭 사유 및 공학적 강점 방어 논리
+              </div>
+              <p id="heroRationale" class="text-sm sm:text-base text-[#102a25] font-medium leading-relaxed"></p>
+            </div>
+
+            <!-- CAPEX / OPEX / 균등화 단가 / LCA 4개 핵심 지표 분리 카드 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+              <!-- 초기 설비비 CAPEX -->
+              <div class="p-4 rounded-2xl bg-[#f7f9f8] border border-[#d5e2df]">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-[#4a635e]">초기 설비비 (CAPEX)</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#e6f2ef] text-[#0a3b32]">0.6 스케일업</span>
+                </div>
+                <div id="heroCapex" class="text-xl font-black text-[#102a25] mt-1.5">$18.50 M</div>
+                <div id="heroCapexNote" class="text-[11px] font-semibold text-[#4a635e] mt-1 leading-snug">기준 규모 대비 6/10 법칙 환산</div>
+              </div>
+
+              <!-- 연간 운영비 OPEX -->
+              <div class="p-4 rounded-2xl bg-[#f7f9f8] border border-[#d5e2df]">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-[#4a635e]">연간 운영비 (OPEX)</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">유지·에너지</span>
+                </div>
+                <div id="heroOpex" class="text-xl font-black text-[#102a25] mt-1.5">$2.40 M/yr</div>
+                <div id="heroOpexNote" class="text-[11px] font-semibold text-[#4a635e] mt-1 leading-snug">수분 건조·폐수·유지보수 반영</div>
+              </div>
+
+              <!-- 균등화 생산단가 -->
+              <div class="p-4 rounded-2xl bg-[#f7f9f8] border border-[#d5e2df]">
+                <div class="flex items-center justify-between">
+                  <span id="heroUnitTypeLabel" class="text-xs font-bold text-[#4a635e]">연료 생산단가 (MSP)</span>
+                  <span id="heroUnitBadge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">연료 발열량</span>
+                </div>
+                <div id="heroTeaMsp" class="text-xl font-black text-[#147a68] mt-1.5">0.0063 USD/MJ</div>
+                <div id="heroTeaNote" class="text-[11px] font-semibold text-[#4a635e] mt-1 leading-snug">건식 탄화 대비 23.2% 절감</div>
+              </div>
+
+              <!-- LCA 환경성 -->
+              <div class="p-4 rounded-2xl bg-[#f7f9f8] border border-[#d5e2df]">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-[#4a635e]">환경성 (LCA 지표)</span>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0a3b32] text-white">전과정평가</span>
+                </div>
+                <div id="heroLcaScore" class="text-xl font-black text-[#0a3b32] mt-1.5">84점 / 100점</div>
+                <div id="heroLcaNote" class="text-[11px] font-semibold text-[#4a635e] mt-1 leading-snug">환경 우위 확률 71.8%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- [2] 중단 3열 비교 카드: 차순위 대안 공정 및 감점 원인 + 공학적 방어 논리 -->
+        <div>
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
+            <h3 class="text-base sm:text-lg font-extrabold text-[#0a3b32] flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#e85d3f]"></span>
+              차순위 대안 공정 비교 (CAPEX · OPEX · 감점 원인 및 방어 논리)
+            </h3>
+            <span class="text-xs font-medium text-[#4a635e]">
+              * 기술 우열이 아닌 <strong>현재 입력 조건(수분·목표·규제)</strong> 기준 적합도 차이입니다.
+            </span>
+          </div>
+
+          <div id="runnerUpGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- JS 동적 렌더링 -->
+          </div>
+        </div>
+
+        <!-- [3] 하단 비교 차트: 탭 전환 (점수 비교 vs 실제 CAPEX/OPEX M$ 비교) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-[#d5e2df] p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-[#0a3b32]">4대 기술 정량 비교 시각화</h3>
+              <p id="chartSubtitle" class="text-xs text-[#4a635e] mt-0.5">
+                입력 규모(<span id="chartCapText">100</span> 톤/일) 및 수분 함량(<span id="chartMoistText">75</span>%)이 반영된 정량 비교
+              </p>
+            </div>
+            <div class="inline-flex rounded-xl bg-[#f4f7f6] p-1 border border-[#d5e2df] self-start">
+              <button type="button" id="tabScores" onclick="switchChartTab('scores')"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-[#0a3b32] text-white transition cursor-pointer">
+                TEA·LCA 점수 비교 (100점)
+              </button>
+              <button type="button" id="tabCosts" onclick="switchChartTab('costs')"
+                class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#334844] hover:text-[#0a3b32] transition cursor-pointer">
+                실제 CAPEX · OPEX (M$) 비교
+              </button>
+            </div>
+          </div>
+
+          <div id="scoresChartWrapper" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div class="lg:col-span-7 h-64">
+              <canvas id="scoreComparisonChart"></canvas>
+            </div>
+            <div class="lg:col-span-5 h-64">
+              <canvas id="mspComparisonChart"></canvas>
+            </div>
+          </div>
+
+          <div id="costsChartWrapper" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div class="lg:col-span-6 h-64">
+              <canvas id="capexComparisonChart"></canvas>
+            </div>
+            <div class="lg:col-span-6 h-64">
+              <canvas id="opexComparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- [4] 하단 투명성 안내 패널: 논문 원문 실측치 vs 시뮬레이터 산정 기준 구분 -->
+    <section class="bg-white rounded-2xl shadow-sm border border-[#d5e2df] p-5 sm:p-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="px-2.5 py-0.5 text-xs font-extrabold bg-[#0a3b32] text-white rounded-md">산출 근거 및 지표 해석 안내</span>
+        <h3 class="text-sm sm:text-base font-extrabold text-[#102a25]">
+          논문 원문 실측 데이터와 시뮬레이터 표준화 점수(0~100점) 구분 기준
+        </h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-[#334844] leading-relaxed">
+        <div class="p-4 rounded-xl bg-[#f7f9f8] border border-[#e2ece9] space-y-1.5">
+          <div class="font-extrabold text-[#0a3b32] text-sm">1. 논문 원문에서 직접 인용한 실측 데이터</div>
+          <p>• <strong>소각+CCS (Aljoubory et al., 2026):</strong> 처리량 250,000 ton/yr(≈685 ton/day), CAPEX £227.7M(약 $289.2M, 1 GBP=1.27 USD 환산), OPEX £23.6M/yr(약 $30.0M/yr), 전력 생산단가 <strong>LCOE £162.6/MWh</strong>(기존 £95.2/MWh), GWP -33%, 에너지 페널티 35%.</p>
+          <p>• <strong>건식 탄화 vs 열수탄화 (Li &amp; Jin, 2025):</strong> 연료 생산단가 <strong>MSP 0.0082 vs 0.0063 USD/MJ</strong>(-23.2%), 가격 변동성 -30%, LCA 환경 우위 확률 71.8% (CAPEX·OPEX는 상용 Aspen 기준치에 6/10 법칙 적용).</p>
+          <p>• <strong>수열액화 HTL (Kapusta et al., 2026):</strong> 처리량 72 ton/day, CAPEX <strong>$25.51M</strong>, 순수 지출 OPEX <strong>$1.87M/yr</strong>(반입수익 -$2.52M/yr 차감 시 순 OPEX -$0.65M/yr 흑자), 연료 생산단가 <strong>DGC 0.0195 USD/MJ</strong>(0.90 USD/L, 38.30 MJ/kg), 탄소발자국 19 g CO₂-eq/MJ(GHG -80%).</p>
+        </div>
+        <div class="p-4 rounded-xl bg-[#e6f2ef]/50 border border-[#b8d8d0] space-y-1.5">
+          <div class="font-extrabold text-[#0a3b32] text-sm">2. 시뮬레이터 자체 산정 로직 (단위 통일 및 100점 환산)</div>
+          <p>• <strong>단위 성격 차이 명시:</strong> 소각+CCS의 <strong>LCOE(£162.6/MWh, 전력 기준)</strong>와 탄화·HTL의 <strong>MSP/DGC(USD/MJ, 연료 발열량 기준)</strong>는 산정 대상이 다르므로 카드에 원문 지표를 그대로 병기하고, 통합 비교 차트에서는 1차 에너지 단위(USD/MJ)로 환산하여 상대 비교했습니다.</p>
+          <p>• <strong>규모의 경제(6/10 법칙):</strong> 논문별 서로 다른 기준 용량(72~685 ton/day)을 사용자가 선택한 일일 처리량으로 보정하기 위해 플랜트 원가 공학 표준 공식인 <code>CAPEX × (목표용량 / 기준용량)^0.6</code>을 적용했습니다.</p>
+          <p>• <strong>적합도 총점(100점 만점):</strong> 논문 직접 수치가 아닌 의사결정 지원용 표준화 점수로, <strong>경제성(TEA) + 환경성(LCA) + 원료 수분 적합성 + 목표 산출물 일치도</strong>를 규제 강도 가중치에 따라 합산한 값입니다.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 논문 원문 수치 커스텀 수정 모달 -->
+  <div id="customModal" class="fixed inset-0 bg-[#0a3b32]/70 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-[#d5e2df]">
+      <div class="px-6 py-4 bg-[#0a3b32] text-white flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold">팀원 논문 원문 수치 커스텀 수정</h3>
+          <p class="text-xs text-emerald-100 mt-0.5">기준 처리용량(ton/day), CAPEX(M$), OPEX(M$/yr), 단가(USD/MJ)를 수정하면 즉시 반영됩니다.</p>
+        </div>
+        <button id="closeModalBtn" type="button" class="text-emerald-200 hover:text-white p-1 cursor-pointer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- 소각 + CCS -->
+          <div class="p-4 rounded-xl border border-[#d5e2df] space-y-2.5">
+            <div class="text-xs font-extrabold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-md inline-block">소각+CCS (Aljoubory, 2026)</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 용량 (ton/day)</label>
+                <input id="inIncCap" type="number" step="1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 CAPEX (M$)</label>
+                <input id="inIncCapex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 OPEX (M$/yr)</label>
+                <input id="inIncOpex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">환산 단가 (USD/MJ)</label>
+                <input id="inIncMsp" type="number" step="0.0001" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 건식 탄화 -->
+          <div class="p-4 rounded-xl border border-[#d5e2df] space-y-2.5">
+            <div class="text-xs font-extrabold text-slate-800 bg-slate-200 px-2.5 py-1 rounded-md inline-block">건식 탄화 SP (Li &amp; Jin, 2025)</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 용량 (ton/day)</label>
+                <input id="inDryCap" type="number" step="1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 CAPEX (M$)</label>
+                <input id="inDryCapex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 OPEX (M$/yr)</label>
+                <input id="inDryOpex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 MSP (USD/MJ)</label>
+                <input id="inDryMsp" type="number" step="0.0001" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 열수탄화 HTC -->
+          <div class="p-4 rounded-xl border border-[#d5e2df] space-y-2.5">
+            <div class="text-xs font-extrabold text-white bg-[#147a68] px-2.5 py-1 rounded-md inline-block">열수탄화 HTC (Li &amp; Jin, 2025)</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 용량 (ton/day)</label>
+                <input id="inHtcCap" type="number" step="1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 CAPEX (M$)</label>
+                <input id="inHtcCapex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 OPEX (M$/yr)</label>
+                <input id="inHtcOpex" type="number" step="0.1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 MSP (USD/MJ)</label>
+                <input id="inHtcMsp" type="number" step="0.0001" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 수열액화 HTL -->
+          <div class="p-4 rounded-xl border border-[#d5e2df] space-y-2.5">
+            <div class="text-xs font-extrabold text-[#e85d3f] bg-[#e85d3f]/15 px-2.5 py-1 rounded-md inline-block">수열액화 HTL (Kapusta, 2026)</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 용량 (ton/day)</label>
+                <input id="inHtlCap" type="number" step="1" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 CAPEX (M$)</label>
+                <input id="inHtlCapex" type="number" step="0.01" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">순수 OPEX (M$/yr)</label>
+                <input id="inHtlOpex" type="number" step="0.01" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-[#102a25] mb-1">기준 DGC (USD/MJ)</label>
+                <input id="inHtlMsp" type="number" step="0.0001" class="w-full rounded-lg border border-[#d5e2df] px-2.5 py-1.5 text-xs font-semibold" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-[#f7f9f8] border-t border-[#d5e2df] flex justify-between items-center">
+        <button type="button" onclick="resetBenchmarks()" class="text-xs font-bold text-[#4a635e] hover:text-[#102a25] cursor-pointer">
+          팀원 논문 기본값 복원
+        </button>
+        <div class="flex gap-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl border border-[#d5e2df] text-xs font-bold text-[#334844] hover:bg-slate-100 cursor-pointer">
+            취소
+          </button>
+          <button type="button" onclick="saveBenchmarks()" class="px-4 py-2 rounded-xl bg-[#147a68] hover:bg-[#0a3b32] text-white text-xs font-bold cursor-pointer">
+            시뮬레이터에 즉시 반영
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 팀원 제공 논문 원문 데이터 기반 초기 설정 (1 GBP = 1.27 USD 환율 적용)
+    const defaultTechData = {
+      incineration: {
+        id: 'incineration',
+        name: '소각 및 열회수+CCS',
+        shortName: '소각/열회수+CCS',
+        subtitle: '850~1,100℃ 직접 연소 + MEA 포집(80%) · 근거: Aljoubory et al. (2026)',
+        baseCapacity: 685,     // 250,000 ton/year ≈ 685 ton/day
+        baseCapexM: 289.2,     // £227.7M * 1.27 = $289.2M (기존 £174.7M + CCS £53.1M)
+        baseOpexM: 30.0,       // £23.6M/yr * 1.27 = $30.0M/yr (기존 £18.2M + CCS £5.4M)
+        baseMsp: 0.0574,       // LCOE £162.6/MWh ($206.5/MWh = 0.0574 USD/MJ_elec)
+        lcaScore: 62,
+        unitTypeLabel: '전력 생산단가 (LCOE)',
+        unitBadge: '전력 기준 (MWh)',
+        lcaNote: 'GWP 약 33% 감소 (MEA 독성·자원고갈 증가 주의)',
+        defenseLogic: '기존 상용 소각 인프라에 CCS를 후단 결합할 수 있어 신규 부지 인허가 부담이 적으며, 선별이 어려운 혼합 가연성 폐기물을 일괄 처리해 전력·지역난방을 즉각 공급합니다.',
+        targetType: 'heat_power',
+        wetFriendly: false,
+        themeGradient: 'from-[#78350f] via-[#92400e] to-[#b45309]',
+        themeBorder: 'border-amber-600',
+        themeText: 'text-amber-800',
+        rationale: '저수분 혼합 가연성 폐기물은 보조연료 없이 자발 연소하여 즉각적인 전력과 스팀을 공급합니다. Aljoubory et al. (2026) 원문 기준 처리용량 250 ktpa(685톤/일) 규모에서 총 CAPEX £227.7M($289.2M), OPEX £23.6M/yr($30.0M/yr), 전력 기준 LCOE £162.6/MWh(기존 £95.2/MWh)가 소요되며, GWP를 약 33% 감축합니다.'
+      },
+      dry_carb: {
+        id: 'dry_carb',
+        name: '건식 탄화 (완속 열분해)',
+        shortName: '건식 탄화',
+        subtitle: '500℃ 무산소 건식 가열 · 주생성물: 고체 바이오차 · 근거: Li & Jin (2025)',
+        baseCapacity: 100,     // 상용 벤치마크 100 ton/day 기준
+        baseCapexM: 14.8,      // 상압 열분해 반응기 + 건조 설비 기준 벤치마크 ($14.8M)
+        baseOpexM: 3.1,        // 고온 500℃ 가열 및 건조 에너지 운영비 벤치마크 ($3.1M/yr)
+        baseMsp: 0.0082,       // Li & Jin (2025) 원문 MSP 0.0082 USD/MJ
+        lcaScore: 66,
+        unitTypeLabel: '연료 생산단가 (MSP)',
+        unitBadge: '연료 발열량 기준',
+        lcaNote: '탄소 고정 효과 우수 (고수분 원료 건조 시 열손실 발생)',
+        defenseLogic: '상압 운전으로 초고압 설비 안전 리스크가 적으며, 저수분 폐목재 투입 시 고발열량 바이오차(21.6 MJ/kg)와 부산물 바이오오일(20 MJ/kg)을 동시에 회수합니다.',
+        targetType: 'solid_char',
+        wetFriendly: false,
+        themeGradient: 'from-[#1e293b] via-[#334155] to-[#475569]',
+        themeBorder: 'border-slate-700',
+        themeText: 'text-slate-800',
+        rationale: '수분 함량이 낮은 폐목재·농업부산물은 사전 건조 에너지 부담이 적어 500℃ 무산소 건식 탄화(SP)에 최적화되어 있습니다. Li & Jin (2025) 분석 결과 손익분기 MSP는 0.0082 USD/MJ이며, 소각과 달리 탄소를 고정해 저장·운송 가능한 고발열량 바이오차(21.6 MJ/kg)를 생산합니다.'
+      },
+      htc: {
+        id: 'htc',
+        name: '열수탄화 (HTC)',
+        shortName: '열수탄화(HTC)',
+        subtitle: '280℃ 물속 고압 반응 · 주생성물: 하이드로차 · 근거: Li & Jin (2025)',
+        baseCapacity: 100,     // 상용 벤치마크 100 ton/day 기준
+        baseCapexM: 18.2,      // 280℃ 고압 반응기 및 필터 여과 설비 벤치마크 ($18.2M)
+        baseOpexM: 2.35,       // 건조 생략으로 운영비 절감 ($2.35M/yr)
+        baseMsp: 0.0063,       // Li & Jin (2025) 원문 MSP 0.0063 USD/MJ
+        lcaScore: 84,
+        unitTypeLabel: '연료 생산단가 (MSP)',
+        unitBadge: '연료 발열량 기준',
+        lcaNote: 'LCA 환경 우위 확률 71.8% (공정 폐수 수질 관리 병행 필요)',
+        defenseLogic: '사전 건조 공정을 완전히 생략하고 280℃ 저온에서 반응하여 건식 탄화 대비 MSP를 23.2% 낮추고 가격 변동성을 30% 줄여 재무 안정성이 가장 뛰어납니다.',
+        targetType: 'solid_char',
+        wetFriendly: true,
+        themeGradient: 'from-[#0a3b32] via-[#124d42] to-[#147a68]',
+        themeBorder: 'border-[#147a68]',
+        themeText: 'text-[#147a68]',
+        rationale: '수분 함량이 높은 하수슬러지를 사전 건조 없이 물속(280℃)에서 직접 탄화하여 건조 열에너지 비용을 제거합니다. Li & Jin (2025) 평가 결과 건식 탄화 대비 최소판매가격(0.0063 USD/MJ)이 23.2% 저렴하고 가격 변동성은 30% 낮으며, LCA 환경 우위 확률이 71.8%에 달합니다.'
+      },
+      htl: {
+        id: 'htl',
+        name: '수열액화 (HTL)',
+        shortName: '수열액화(HTL)',
+        subtitle: '300~350℃ 아임계수 액화 + 수첨처리 · 근거: Kapusta et al. (2026)',
+        baseCapacity: 72,      // Kapusta et al. (2026) 원문 기준 72 ton/day
+        baseCapexM: 25.51,     // 원문 실측 CAPEX $25,509,414 (약 $25.51M)
+        baseOpexM: 1.87,       // 원문 순수 지출 OPEX $1,867,080/yr (반입수익 -$2.52M 차감 시 -$0.65M 흑자)
+        baseGateFeeM: 2.52,    // 원문 슬러지 반입 수수료 수익 $2,520,000/yr
+        baseMsp: 0.0195,       // 원문 DGC 0.90 USD/L (38.30 MJ/kg) -> 0.0195 USD/MJ
+        lcaScore: 91,
+        unitTypeLabel: '연료 생산단가 (DGC)',
+        unitBadge: '0.90 USD/L 환산',
+        lcaNote: '탄소발자국 19 g CO₂-eq/MJ (GHG -80%) · 인(P) 비료화 시 추가 환경 편익',
+        defenseLogic: '고도화된 열 회수(에너지 72.3% 절감) 설계를 통해 높은 초기 설비 투자비(CAPEX)를 운영 효율로 상쇄하며, 인(P)이 풍부한 공정 부산물(Char)을 비료로 활용하고 폐수를 최적 처리할 경우 추가적인 환경 편익 창출이 가능합니다.',
+        targetType: 'liquid_oil',
+        wetFriendly: true,
+        themeGradient: 'from-[#9a3412] via-[#c2410c] to-[#e85d3f]',
+        themeBorder: 'border-[#e85d3f]',
+        themeText: 'text-[#e85d3f]',
+        rationale: '고수분 슬러지를 액화·수첨처리하여 수송용 액체 바이오연료(DGC 0.90 USD/L, 0.0195 USD/MJ)를 생산합니다. Kapusta et al. (2026) 기준 탄소발자국 19 g CO₂-eq/MJ(화석연료 대비 GHG -80%)를 달성하며, 고도화된 열 회수(에너지 72.3% 절감) 설계로 높은 초기 CAPEX($25.51M)를 운영 효율로 상쇄하고 인(P) 부산물 비료화 시 추가 환경 편익을 창출합니다.'
+      }
+    };
+
+    let techData = JSON.parse(JSON.stringify(defaultTechData));
+    let currentTarget = 'solid_char';
+    let currentChartTab = 'scores';
+    let scoreChart = null;
+    let mspChart = null;
+    let capexChart = null;
+    let opexChart = null;
+
+    const moistureSlider = document.getElementById('moistureSlider');
+    const capacitySlider = document.getElementById('capacitySlider');
+    const lcaWeightSlider = document.getElementById('lcaWeightSlider');
+    const gateFeeToggle = document.getElementById('gateFeeToggle');
+
+    const lcaWeightLabels = {
+      1: '레벨 1 · 단가 최우선',
+      2: '레벨 2 · 경제성 중심',
+      3: '레벨 3 · TEA·LCA 균형',
+      4: '레벨 4 · 환경성 중시',
+      5: '레벨 5 · 탈탄소 최우선'
+    };
+
+    function switchChartTab(tab) {
+      currentChartTab = tab;
+      const btnScores = document.getElementById('tabScores');
+      const btnCosts = document.getElementById('tabCosts');
+      const wrapScores = document.getElementById('scoresChartWrapper');
+      const wrapCosts = document.getElementById('costsChartWrapper');
+
+      if (tab === 'scores') {
+        btnScores.className = 'px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-[#0a3b32] text-white transition cursor-pointer';
+        btnCosts.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#334844] hover:text-[#0a3b32] transition cursor-pointer';
+        wrapScores.classList.remove('hidden');
+        wrapCosts.classList.add('hidden');
+      } else {
+        btnCosts.className = 'px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-[#0a3b32] text-white transition cursor-pointer';
+        btnScores.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-[#334844] hover:text-[#0a3b32] transition cursor-pointer';
+        wrapCosts.classList.remove('hidden');
+        wrapScores.classList.add('hidden');
+      }
+    }
+
+    function selectTarget(targetKey) {
+      currentTarget = targetKey;
+      document.querySelectorAll('.target-btn').forEach(btn => {
+        if (btn.dataset.target === targetKey) {
+          btn.className = 'target-btn text-left px-3.5 py-2.5 rounded-xl border-2 border-[#147a68] bg-[#e6f2ef] text-xs sm:text-sm font-extrabold text-[#0a3b32] transition flex items-center justify-between cursor-pointer';
+        } else {
+          btn.className = 'target-btn text-left px-3.5 py-2.5 rounded-xl border border-[#d5e2df] bg-white text-xs sm:text-sm font-bold text-[#334844] hover:border-[#147a68] transition flex items-center justify-between cursor-pointer';
+        }
+      });
+      updateSimulation();
+    }
+
+    function applyPreset(presetKey) {
+      document.querySelectorAll('.preset-card').forEach(card => {
+        card.className = 'preset-card text-left p-3.5 rounded-xl border border-[#d5e2df] hover:border-[#147a68] hover:bg-[#f4f9f8] transition flex items-center justify-between cursor-pointer';
+      });
+
+      const activeCard = document.getElementById(`preset-${presetKey}`);
+      if (activeCard) {
+        activeCard.className = 'preset-card text-left p-3.5 rounded-xl border-2 border-[#147a68] bg-[#e6f2ef]/70 transition flex items-center justify-between cursor-pointer shadow-2xs';
+      }
+
+      if (presetKey === 'incineration') {
+        moistureSlider.value = 20;
+        capacitySlider.value = 300;
+        lcaWeightSlider.value = 2;
+        selectTarget('heat_power');
+      } else if (presetKey === 'dry_carb') {
+        moistureSlider.value = 25;
+        capacitySlider.value = 100;
+        lcaWeightSlider.value = 3;
+        selectTarget('solid_char');
+      } else if (presetKey === 'htc') {
+        moistureSlider.value = 75;
+        capacitySlider.value = 100;
+        lcaWeightSlider.value = 4;
+        selectTarget('solid_char');
+      } else if (presetKey === 'htl') {
+        moistureSlider.value = 80;
+        capacitySlider.value = 100;
+        lcaWeightSlider.value = 5;
+        selectTarget('liquid_oil');
+      }
+    }
+
+    // 6/10 법칙 기반 실제 CAPEX/OPEX 산출 및 정량 평가 엔진
+    function evaluateTechnologies() {
+      const moisture = parseInt(moistureSlider.value, 10);
+      const capacity = parseInt(capacitySlider.value, 10);
+      const lcaWeight = parseInt(lcaWeightSlider.value, 10);
+      const includeGateFee = gateFeeToggle.checked;
+
+      return Object.values(techData).map(tech => {
+        const penalties = [];
+
+        // 1. 6/10 법칙 (Six-Tenths Rule, 0.6 지수) 기반 실제 CAPEX (M$) 스케일업
+        const capacityRatio = capacity / tech.baseCapacity;
+        const scaledCapexM = Number((tech.baseCapexM * Math.pow(capacityRatio, 0.6)).toFixed(2));
+
+        // 2. 원료 수분 함량에 따른 건조·보조연료 OPEX 페널티
+        let moistureOpexMultiplier = 1.0;
+        let moistureFitScore = 88;
+
+        if (!tech.wetFriendly) {
+          if (moisture > 35) {
+            const excess = moisture - 35;
+            moistureOpexMultiplier = 1 + Math.pow(excess / 35, 1.35) * 0.75;
+            moistureFitScore = Math.max(12, Math.round(92 - excess * 1.65));
+            penalties.push({
+              severity: excess >= 25 ? 'high' : 'mid',
+              tag: '고수분 건조·연소 손실',
+              reason: `수분(${moisture}%) 증발을 위한 사전 건조 및 보조연료 투입으로 연간 운영비(OPEX)가 급증함`
+            });
+          } else {
+            moistureFitScore = 96;
+          }
+        } else {
+          if (moisture < 30) {
+            const deficit = 30 - moisture;
+            moistureOpexMultiplier = 1 + deficit * 0.012;
+            moistureFitScore = Math.max(42, Math.round(86 - deficit * 1.7));
+            penalties.push({
+              severity: 'mid',
+              tag: '저수분 원료 희석 비효율',
+              reason: `건조 원료(${moisture}%)에 공정수를 첨가해 고압 가열해야 하므로 열효율이 저하됨`
+            });
+          } else {
+            moistureFitScore = 96;
+          }
+        }
+
+        // 3. 실제 연간 OPEX (M$/yr) 산출 (HTL 반입 수수료 토글 반영)
+        let scaledOpexM = tech.baseOpexM * Math.pow(capacityRatio, 0.85) * moistureOpexMultiplier;
+        let opexDetailNote = `기준 OPEX $${tech.baseOpexM.toFixed(2)}M/yr 규모 보정`;
+
+        if (tech.id === 'htl') {
+          const scaledGateFeeM = (tech.baseGateFeeM || 2.52) * capacityRatio;
+          if (includeGateFee) {
+            scaledOpexM = scaledOpexM - scaledGateFeeM;
+            opexDetailNote = `지출 $${(tech.baseOpexM * Math.pow(capacityRatio, 0.85)).toFixed(2)}M - 반입수익 $${scaledGateFeeM.toFixed(2)}M`;
+          } else {
+            opexDetailNote = `순수 지출 비용 기준 (수소·전력·인건비·폐수·유지보수)`;
+          }
+        }
+        scaledOpexM = Number(scaledOpexM.toFixed(2));
+
+        // 4. 실질 에너지 생산단가 (USD/MJ) 및 TEA 점수 산출
+        const scaleUnitFactor = Math.pow(capacityRatio, -0.18);
+        let effectiveMsp = tech.baseMsp * scaleUnitFactor * (0.4 + 0.6 * moistureOpexMultiplier);
+        if (tech.id === 'htl' && includeGateFee) {
+          effectiveMsp = effectiveMsp * 0.72; // 반입 수수료 흑자 효과 반영
+        }
+        effectiveMsp = Number(effectiveMsp.toFixed(4));
+
+        // 소각 LCOE는 전력 기준(0.0574 USD/MJ_elec)이므로 연료 발열량 단가와 공정하게 정규화 비교
+        const normalizedUnitCost = tech.id === 'incineration' ? effectiveMsp * 0.22 : effectiveMsp;
+        const teaScore = Math.max(18, Math.min(98, Math.round(115 - (normalizedUnitCost / 0.022) * 75)));
+
+        // 공정별 특이사항 감점 원인
+        if (tech.id === 'htl' && capacity < 100) {
+          penalties.push({
+            severity: 'mid',
+            tag: '초고압 설비 CAPEX 부담',
+            reason: `소규모 처리량(${capacity}톤/일) 대비 초기 설비비($${scaledCapexM}M) 고정비 비중이 높음 (고도화 열 회수 72.3% 절감으로 상쇄 가능)`
+          });
+        } else if (tech.id === 'incineration' && lcaWeight >= 4) {
+          penalties.push({
+            severity: 'high',
+            tag: 'CCS 에너지 페널티(35%) 및 독성 부담',
+            reason: `Aljoubory (2026) 기준 CCS 가동 시 에너지 페널티 35%, CAPEX·OPEX +30% 및 MEA 독성 증가 발생`
+          });
+        }
+
+        // 5. 목표 산출물(Target) 일치 여부 및 감점 원인
+        let targetScore = 96;
+        if (tech.targetType !== currentTarget) {
+          targetScore = 38;
+          if (currentTarget === 'liquid_oil') {
+            if (tech.targetType === 'solid_char') {
+              penalties.push({
+                severity: 'high',
+                tag: '액상 수송연료 생산 불가',
+                reason: `고체 연료(Char)만 생산 가능하여 고부가 액체 수송연료 수요에 부합하지 못함`
+              });
+            } else {
+              penalties.push({
+                severity: 'high',
+                tag: '액상화·장거리 저장 불가',
+                reason: `전력·스팀으로만 즉각 회수되므로 수송용 액체 바이오연료 전환이 불가능함`
+              });
+            }
+          } else if (currentTarget === 'solid_char') {
+            if (tech.targetType === 'heat_power') {
+              penalties.push({
+                severity: 'high',
+                tag: '탄소 고정·고형연료화 불가',
+                reason: `폐기물을 전량 연소시키므로 저장·운송 가능한 고체 연료(Char) 생산 목표를 달성할 수 없음`
+              });
+            } else {
+              penalties.push({
+                severity: 'mid',
+                tag: '고형연료 목적 대비 과잉설비',
+                reason: `고체 연료가 목표인 조건에서 초고압 수열액화(HTL) 및 수첨 설비를 가동하는 것은 비효율적임`
+              });
+            }
+          } else if (currentTarget === 'heat_power') {
+            penalties.push({
+              severity: 'mid',
+              tag: '연료화 이중 공정 비용',
+              reason: `즉시 전력·스팀 공급이 목표이나, 중간 연료 제조 후 재연소하는 추가 공정비가 발생함`
+            });
+          }
+        }
+
+        // 감점이 없는 경우 기술 고유 한계점 표시
+        if (penalties.length === 0) {
+          if (tech.id === 'htc') {
+            penalties.push({
+              severity: 'low',
+              tag: '공정 폐수 및 고체 한계',
+              reason: `고농도 공정 폐수 수질 관리 비용 및 고체 하이드로차의 발전용 혼소 중심 활용처 제한`
+            });
+          } else if (tech.id === 'dry_carb') {
+            penalties.push({
+              severity: 'low',
+              tag: '열수탄화 대비 단가 열위',
+              reason: `Li & Jin (2025) 기준 열수탄화(0.0063 USD/MJ) 대비 높은 생산 단가(0.0082 USD/MJ)`
+            });
+          } else if (tech.id === 'incineration') {
+            penalties.push({
+              severity: 'low',
+              tag: '탄소 보존율 낮음',
+              reason: `폐자원 내 유용 탄소를 연료로 고정하지 못하고 연소 후 CCS 포집 비용을 부담하는 구조`
+            });
+          } else if (tech.id === 'htl') {
+            penalties.push({
+              severity: 'low',
+              tag: '고압 부식·수첨정제 관리',
+              reason: `초고압 반응기 무기염류 관리 및 외부 수소 조달 비용 민감도 관리 필요`
+            });
+          }
+        }
+
+        // 가중치 적용 최종 적합도 점수 산출 (100점 만점)
+        const wLca = 0.15 + (lcaWeight - 1) * 0.055;
+        const wTea = 0.35 - (lcaWeight - 1) * 0.035;
+        const wMoist = 0.26;
+        const wTarget = 0.24;
+
+        const rawTotal =
+          teaScore * wTea +
+          tech.lcaScore * wLca +
+          moistureFitScore * wMoist +
+          targetScore * wTarget;
+
+        const totalScore = Math.max(24, Math.min(98, Math.round(rawTotal)));
+
+        return {
+          ...tech,
+          scaledCapexM,
+          scaledOpexM,
+          opexDetailNote,
+          effectiveMsp,
+          teaScore,
+          moistureFitScore,
+          totalScore,
+          primaryPenalty: penalties[0]
+        };
+      });
+    }
+
+    function updateSimulation() {
+      const moisture = parseInt(moistureSlider.value, 10);
+      const capacity = parseInt(capacitySlider.value, 10);
+      const lcaWeight = parseInt(lcaWeightSlider.value, 10);
+
+      document.getElementById('moistureValue').textContent = `${moisture}%`;
+      document.getElementById('capacityValue').textContent = `${capacity} 톤/일`;
+      document.getElementById('lcaWeightValue').textContent = lcaWeightLabels[lcaWeight];
+      document.getElementById('chartCapText').textContent = capacity;
+      document.getElementById('chartMoistText').textContent = moisture;
+
+      const evaluated = evaluateTechnologies();
+      const sorted = [...evaluated].sort((a, b) => b.totalScore - a.totalScore);
+
+      const best = sorted[0];
+      const runnerUps = sorted.slice(1);
+
+      // 1. 상단 히어로 카드 업데이트
+      const heroCard = document.getElementById('heroCard');
+      heroCard.className = `bg-white rounded-3xl shadow-md border-2 ${best.themeBorder} overflow-hidden transition-all`;
+
+      const heroHeader = document.getElementById('heroHeader');
+      heroHeader.className = `bg-gradient-to-r ${best.themeGradient} px-6 sm:px-8 py-6 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4`;
+
+      document.getElementById('heroTitle').textContent = best.name;
+      document.getElementById('heroSubtitle').textContent = best.subtitle;
+      document.getElementById('heroScore').textContent = best.totalScore;
+      document.getElementById('heroScore').className = `text-4xl font-black ${best.themeText}`;
+      document.getElementById('heroRationale').textContent = best.rationale;
+
+      document.getElementById('heroCapex').textContent = `$${best.scaledCapexM.toFixed(2)} M`;
+      document.getElementById('heroCapexNote').textContent = `원문 $${best.baseCapexM}M (${best.baseCapacity}t/d) → ${capacity}t/d 환산`;
+
+      const opexFormatted = best.scaledOpexM < 0
+        ? `-$${Math.abs(best.scaledOpexM).toFixed(2)} M/yr (흑자)`
+        : `$${best.scaledOpexM.toFixed(2)} M/yr`;
+      document.getElementById('heroOpex').textContent = opexFormatted;
+      document.getElementById('heroOpex').className = best.scaledOpexM < 0
+        ? 'text-lg sm:text-xl font-black text-[#147a68] mt-1.5'
+        : 'text-xl font-black text-[#102a25] mt-1.5';
+      document.getElementById('heroOpexNote').textContent = best.opexDetailNote;
+
+      document.getElementById('heroUnitTypeLabel').textContent = best.unitTypeLabel;
+      document.getElementById('heroUnitBadge').textContent = best.unitBadge;
+
+      if (best.id === 'incineration') {
+        document.getElementById('heroTeaMsp').textContent = `£162.6 / MWh`;
+        document.getElementById('heroTeaNote').textContent = `전력 기준 LCOE (환산 ${best.effectiveMsp} USD/MJ_elec)`;
+      } else {
+        document.getElementById('heroTeaMsp').textContent = `${best.effectiveMsp.toFixed(4)} USD/MJ`;
+        document.getElementById('heroTeaNote').textContent = best.id === 'htl'
+          ? `원문 DGC 0.90 USD/L (38.30 MJ/kg 기준)`
+          : `원문 기준 ${best.baseMsp.toFixed(4)} USD/MJ (규모·수분 보정)`;
+      }
+
+      document.getElementById('heroLcaScore').textContent = `${best.lcaScore}점 / 100점`;
+      document.getElementById('heroLcaNote').textContent = best.lcaNote;
+
+      // 2. 중단 3열 차순위 비교 카드 렌더링 (CAPEX, OPEX, 감점 원인, 방어 논리 포함)
+      const runnerUpGrid = document.getElementById('runnerUpGrid');
+      runnerUpGrid.innerHTML = runnerUps.map(item => {
+        const badgeStyle = item.primaryPenalty.severity === 'high'
+          ? 'bg-rose-100 text-rose-800 border-rose-200'
+          : item.primaryPenalty.severity === 'mid'
+            ? 'bg-amber-100 text-amber-900 border-amber-200'
+            : 'bg-[#e6f2ef] text-[#0a3b32] border-[#b8d8d0]';
+
+        const boxStyle = item.primaryPenalty.severity === 'high'
+          ? 'bg-rose-50/70 border-rose-200'
+          : item.primaryPenalty.severity === 'mid'
+            ? 'bg-amber-50/70 border-amber-200'
+            : 'bg-[#f7f9f8] border-[#d5e2df]';
+
+        const unitText = item.id === 'incineration'
+          ? `£162.6/MWh (전력)`
+          : `${item.effectiveMsp.toFixed(4)} USD/MJ`;
+
+        const opexShort = item.scaledOpexM < 0
+          ? `-$${Math.abs(item.scaledOpexM).toFixed(2)}M/yr(흑자)`
+          : `$${item.scaledOpexM.toFixed(2)}M/yr`;
+
+        return `
+          <div class="bg-white rounded-2xl shadow-sm border border-[#d5e2df] p-5 flex flex-col justify-between hover:shadow-md transition">
+            <div>
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h4 class="text-base font-extrabold text-[#102a25] leading-snug">${item.name}</h4>
+                <span class="text-sm font-black text-[#0a3b32] bg-[#f4f7f6] px-2.5 py-1 rounded-lg shrink-0">
+                  ${item.totalScore}점 <span class="text-[11px] font-medium text-slate-400">/100</span>
+                </span>
+              </div>
+
+              <!-- 프로그레스 바 -->
+              <div class="w-full bg-[#e2ece9] h-2 rounded-full overflow-hidden mb-3">
+                <div class="bg-[#147a68] h-full rounded-full transition-all duration-300" style="width: ${item.totalScore}%"></div>
+              </div>
+
+              <!-- CAPEX / OPEX / 단가 / LCA 분리 표시 -->
+              <div class="grid grid-cols-2 gap-2 mb-3 text-xs">
+                <div class="p-2 rounded-xl bg-[#f7f9f8] border border-[#e2ece9]">
+                  <div class="text-[10px] text-[#4a635e] font-bold">CAPEX (6/10 스케일업)</div>
+                  <div class="font-extrabold text-[#102a25] mt-0.5">$${item.scaledCapexM.toFixed(2)} M</div>
+                </div>
+                <div class="p-2 rounded-xl bg-[#f7f9f8] border border-[#e2ece9]">
+                  <div class="text-[10px] text-[#4a635e] font-bold">연간 OPEX</div>
+                  <div class="font-extrabold ${item.scaledOpexM < 0 ? 'text-[#147a68]' : 'text-[#102a25]'} mt-0.5">${opexShort}</div>
+                </div>
+                <div class="p-2 rounded-xl bg-[#f7f9f8] border border-[#e2ece9]">
+                  <div class="text-[10px] text-[#4a635e] font-bold">${item.id === 'incineration' ? '전력 LCOE' : '연료 생산단가'}</div>
+                  <div class="font-extrabold text-[#102a25] mt-0.5">${unitText}</div>
+                </div>
+                <div class="p-2 rounded-xl bg-[#f7f9f8] border border-[#e2ece9]">
+                  <div class="text-[10px] text-[#4a635e] font-bold">LCA 환경 점수</div>
+                  <div class="font-extrabold text-[#0a3b32] mt-0.5">${item.lcaScore}점 <span class="text-[10px] font-normal text-slate-400">/100</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <!-- 주요 감점 원인 -->
+              <div class="p-3 rounded-xl border ${boxStyle}">
+                <div class="mb-1">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${badgeStyle}">
+                    감점 · ${item.primaryPenalty.tag}
+                  </span>
+                </div>
+                <p class="text-[11px] text-[#334844] font-medium leading-relaxed">
+                  ${item.primaryPenalty.reason}
+                </p>
+              </div>
+
+              <!-- 공학적 강점 방어 논리 -->
+              <div class="p-2.5 rounded-xl bg-[#e6f2ef]/55 border border-[#b8d8d0]">
+                <div class="text-[10px] font-extrabold text-[#0a3b32] mb-0.5">공학적 강점 방어</div>
+                <p class="text-[11px] text-[#102a25] leading-snug">
+                  ${item.defenseLogic}
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 3. 차트 업데이트
+      updateCharts(evaluated);
+    }
+
+    function updateCharts(evaluated) {
+      const labels = evaluated.map(t => t.shortName);
+      const teaScores = evaluated.map(t => t.teaScore);
+      const lcaScores = evaluated.map(t => t.lcaScore);
+      const effectiveMsps = evaluated.map(t => t.effectiveMsp);
+      const capexValues = evaluated.map(t => t.scaledCapexM);
+      const opexValues = evaluated.map(t => t.scaledOpexM);
+
+      // 1) 점수 비교 차트
+      const scoreCtx = document.getElementById('scoreComparisonChart').getContext('2d');
+      if (scoreChart) scoreChart.destroy();
+      scoreChart = new Chart(scoreCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'TEA 경제성 점수 (표준화 100점)',
+              data: teaScores,
+              backgroundColor: '#147a68',
+              borderRadius: 6
+            },
+            {
+              label: 'LCA 환경성 점수 (표준화 100점)',
+              data: lcaScores,
+              backgroundColor: '#e85d3f',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            x: { min: 0, max: 100, title: { display: true, text: '평가 점수 (100점 만점, 높을수록 유리)', font: { size: 11 } } },
+            y: { ticks: { font: { size: 11, weight: 'bold' } } }
+          }
+        }
+      });
+
+      // 2) 균등화 생산단가 차트
+      const mspCtx = document.getElementById('mspComparisonChart').getContext('2d');
+      if (mspChart) mspChart.destroy();
+      mspChart = new Chart(mspCtx, {
+        type: 'bar',
+        data: {
+          labels: ['소각(전력LCOE)', '건식탄화(MSP)', '열수탄화(MSP)', '수열액화(DGC)'],
+          datasets: [
+            {
+              label: '1차 에너지 환산 단가 (USD/MJ)',
+              data: effectiveMsps,
+              backgroundColor: ['#b45309', '#475569', '#147a68', '#e85d3f'],
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'USD / MJ (소각은 전력 기준)', font: { size: 10 } } },
+            x: { ticks: { font: { size: 10, weight: 'bold' } } }
+          }
+        }
+      });
+
+      // 3) 실제 CAPEX (M$) 비교 차트
+      const capexCtx = document.getElementById('capexComparisonChart').getContext('2d');
+      if (capexChart) capexChart.destroy();
+      capexChart = new Chart(capexCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '초기 설비 투자비 CAPEX (백만 달러, M$)',
+              data: capexValues,
+              backgroundColor: ['#b45309', '#475569', '#147a68', '#e85d3f'],
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'CAPEX (M$, 6/10 법칙 스케일업)', font: { size: 11 } } },
+            x: { ticks: { font: { size: 11, weight: 'bold' } } }
+          }
+        }
+      });
+
+      // 4) 실제 연간 OPEX (M$/yr) 비교 차트
+      const opexCtx = document.getElementById('opexComparisonChart').getContext('2d');
+      if (opexChart) opexChart.destroy();
+      opexChart = new Chart(opexCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '연간 운영·유지보수비 OPEX (M$/yr, 음수는 흑자)',
+              data: opexValues,
+              backgroundColor: opexValues.map(v => v < 0 ? '#0a3b32' : '#147a68'),
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11, weight: 'bold' } } }
+          },
+          scales: {
+            y: { title: { display: true, text: 'OPEX (M$/yr)', font: { size: 11 } } },
+            x: { ticks: { font: { size: 11, weight: 'bold' } } }
+          }
+        }
+      });
+    }
+
+    // 커스텀 입력 모달 제어
+    const modal = document.getElementById('customModal');
+    document.getElementById('openModalBtn').addEventListener('click', () => {
+      document.getElementById('inIncCap').value = techData.incineration.baseCapacity;
+      document.getElementById('inIncCapex').value = techData.incineration.baseCapexM;
+      document.getElementById('inIncOpex').value = techData.incineration.baseOpexM;
+      document.getElementById('inIncMsp').value = techData.incineration.baseMsp;
+
+      document.getElementById('inDryCap').value = techData.dry_carb.baseCapacity;
+      document.getElementById('inDryCapex').value = techData.dry_carb.baseCapexM;
+      document.getElementById('inDryOpex').value = techData.dry_carb.baseOpexM;
+      document.getElementById('inDryMsp').value = techData.dry_carb.baseMsp;
+
+      document.getElementById('inHtcCap').value = techData.htc.baseCapacity;
+      document.getElementById('inHtcCapex').value = techData.htc.baseCapexM;
+      document.getElementById('inHtcOpex').value = techData.htc.baseOpexM;
+      document.getElementById('inHtcMsp').value = techData.htc.baseMsp;
+
+      document.getElementById('inHtlCap').value = techData.htl.baseCapacity;
+      document.getElementById('inHtlCapex').value = techData.htl.baseCapexM;
+      document.getElementById('inHtlOpex').value = techData.htl.baseOpexM;
+      document.getElementById('inHtlMsp').value = techData.htl.baseMsp;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+
+    function saveBenchmarks() {
+      techData.incineration.baseCapacity = parseFloat(document.getElementById('inIncCap').value) || 685;
+      techData.incineration.baseCapexM = parseFloat(document.getElementById('inIncCapex').value) || 289.2;
+      techData.incineration.baseOpexM = parseFloat(document.getElementById('inIncOpex').value) || 30.0;
+      techData.incineration.baseMsp = parseFloat(document.getElementById('inIncMsp').value) || 0.0574;
+
+      techData.dry_carb.baseCapacity = parseFloat(document.getElementById('inDryCap').value) || 100;
+      techData.dry_carb.baseCapexM = parseFloat(document.getElementById('inDryCapex').value) || 14.8;
+      techData.dry_carb.baseOpexM = parseFloat(document.getElementById('inDryOpex').value) || 3.1;
+      techData.dry_carb.baseMsp = parseFloat(document.getElementById('inDryMsp').value) || 0.0082;
+
+      techData.htc.baseCapacity = parseFloat(document.getElementById('inHtcCap').value) || 100;
+      techData.htc.baseCapexM = parseFloat(document.getElementById('inHtcCapex').value) || 18.2;
+      techData.htc.baseOpexM = parseFloat(document.getElementById('inHtcOpex').value) || 2.35;
+      techData.htc.baseMsp = parseFloat(document.getElementById('inHtcMsp').value) || 0.0063;
+
+      techData.htl.baseCapacity = parseFloat(document.getElementById('inHtlCap').value) || 72;
+      techData.htl.baseCapexM = parseFloat(document.getElementById('inHtlCapex').value) || 25.51;
+      techData.htl.baseOpexM = parseFloat(document.getElementById('inHtlOpex').value) || 1.87;
+      techData.htl.baseMsp = parseFloat(document.getElementById('inHtlMsp').value) || 0.0195;
+
+      closeModal();
+      updateSimulation();
+    }
+
+    function resetBenchmarks() {
+      techData = JSON.parse(JSON.stringify(defaultTechData));
+      document.getElementById('inIncCap').value = techData.incineration.baseCapacity;
+      document.getElementById('inIncCapex').value = techData.incineration.baseCapexM;
+      document.getElementById('inIncOpex').value = techData.incineration.baseOpexM;
+      document.getElementById('inIncMsp').value = techData.incineration.baseMsp;
+
+      document.getElementById('inDryCap').value = techData.dry_carb.baseCapacity;
+      document.getElementById('inDryCapex').value = techData.dry_carb.baseCapexM;
+      document.getElementById('inDryOpex').value = techData.dry_carb.baseOpexM;
+      document.getElementById('inDryMsp').value = techData.dry_carb.baseMsp;
+
+      document.getElementById('inHtcCap').value = techData.htc.baseCapacity;
+      document.getElementById('inHtcCapex').value = techData.htc.baseCapexM;
+      document.getElementById('inHtcOpex').value = techData.htc.baseOpexM;
+      document.getElementById('inHtcMsp').value = techData.htc.baseMsp;
+
+      document.getElementById('inHtlCap').value = techData.htl.baseCapacity;
+      document.getElementById('inHtlCapex').value = techData.htl.baseCapexM;
+      document.getElementById('inHtlOpex').value = techData.htl.baseOpexM;
+      document.getElementById('inHtlMsp').value = techData.htl.baseMsp;
+    }
+
+    moistureSlider.addEventListener('input', updateSimulation);
+    capacitySlider.addEventListener('input', updateSimulation);
+    lcaWeightSlider.addEventListener('input', updateSimulation);
+    gateFeeToggle.addEventListener('change', updateSimulation);
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSimulation();
+    });
+  </script>
+</body>
+</html>
